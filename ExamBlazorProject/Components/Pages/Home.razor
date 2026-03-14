@@ -1,0 +1,57 @@
+﻿@page "/"
+@inject ISubjectService SubjectService
+@inject NavigationManager Navigation
+@inject AuthenticationStateProvider AuthProvider
+
+<PageTitle>Home</PageTitle>
+
+<h1>Welcome to Exam Portal</h1>
+
+<p>Choose a subject to start your exam:</p>
+
+@if (Subjects == null)
+{
+    <p>Loading subjects...</p>
+}
+else if (Subjects.Count == 0)
+{
+    <p>No subjects available yet.</p>
+}
+else
+{
+    <div class="row">
+        @foreach (var subject in Subjects)
+        {
+            <div class="col-md-4 mb-3">
+                <div class="card shadow-sm h-100">
+                    <div class="card-body d-flex flex-column">
+                        <h5 class="card-title">@subject.Name</h5>  
+                        <button class="btn btn-primary mt-auto"
+                                @onclick="() => GoToExam(subject)">
+                            Start / View Exam
+                        </button>
+                    </div>
+                </div>
+            </div>
+        }
+    </div>
+}
+
+@code {
+    private List<Subject>? Subjects;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var auth = await AuthProvider.GetAuthenticationStateAsync();
+        var user = auth.User; 
+        Subjects = SubjectService.GetAllSubjects().ToList();
+    }
+
+    void GoToExam(Subject subject)
+    {
+        if (subject.Exam != null)
+            Navigation.NavigateTo($"/user/subject-exam/{subject.Id}");
+        else
+            Navigation.NavigateTo($"/user/subjects"); // or show a message
+    }
+}

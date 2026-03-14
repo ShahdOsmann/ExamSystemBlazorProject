@@ -1,0 +1,84 @@
+﻿@page "/user/subjects"
+@attribute [Authorize]
+
+@inject ISubjectService SubjectService
+@inject IExamService ExamService
+@inject IStudentExamService StudentExamService
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+
+<h3>My Subjects</h3>
+
+<table class="table">
+
+    <thead>
+        <tr>
+            <th>Subject</th>
+            <th>Status</th>
+        </tr>
+    </thead>
+
+    <tbody>
+
+        @foreach (var subject in Subjects)
+        {
+            var exam = Exams.FirstOrDefault(e => e.SubjectId == subject.Id);
+            if (exam != null)
+            {
+                exam = ExamService.GetExamWithQuestions(exam.Id); // load questions
+            }
+
+            var result = Results.FirstOrDefault(r => r.ExamId == exam?.Id);
+            int totalQuestions = exam?.Questions.Count ?? 0;
+
+            <tr>
+                <td>@subject.Name</td>
+                <td>
+                    @if (result != null && totalQuestions > 0)
+                    {
+                        <span class="badge bg-success">
+                            Grade: @result.Grade / @totalQuestions
+                        </span>
+                    }
+                    else if (exam != null)
+                    {
+                        <button class="btn btn-primary"
+                                @onclick="() => StartExam(subject.Id)">
+                            Start Exam
+                        </button>
+                    }
+                    else
+                    {
+                        <span class="text-muted">No Exam</span>
+                    }
+                </td>
+            </tr>
+        }
+
+    </tbody>
+
+</table>
+
+@code {
+
+    List<Subject> Subjects = new();
+    List<Exam> Exams = new();
+    List<StudentExam> Results = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        Subjects = SubjectService.GetAllSubjects().ToList();
+        Exams = ExamService.GetAllExams().ToList();
+
+        var auth = await AuthProvider.GetAuthenticationStateAsync();
+        var userId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        Results = StudentExamService.GetStudentResults(userId).ToList();
+    }
+
+    void StartExam(int subjectId)
+    {
+        Navigation.NavigateTo($"/user/subject-exam/{subjectId}");
+    }
+
+}

@@ -1,0 +1,105 @@
+﻿@page "/admin/add-subject"
+@attribute [Authorize(Roles = "Admin")]
+
+@inject ISubjectService SubjectService
+@inject IExamService ExamService
+@inject NavigationManager Navigation
+
+<h3 class="mb-4">Create Subject & Exam</h3>
+
+<div class="row justify-content-center">
+    <div class="col-lg-6">
+
+        <EditForm Model="FormModel" OnValidSubmit="CreateExam">
+            <DataAnnotationsValidator />
+            <ValidationSummary />
+
+            <div class="card shadow-sm">
+
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Subject Information</h5>
+                </div>
+
+                <div class="card-body">
+
+                    <div class="mb-3">
+                        <label class="form-label">Subject Name</label>
+                        <InputText class="form-control"
+                                   @bind-Value="FormModel.SubjectName"
+                                   placeholder="Example: Database Systems" />
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label">Exam Duration (minutes)</label>
+                        <InputNumber class="form-control"
+                                     @bind-Value="FormModel.Duration"
+                                     min="5" />
+                        <small class="text-muted">
+                            Recommended: 30–120 minutes
+                        </small>
+                    </div>
+
+                </div>
+
+                <div class="card-footer d-flex justify-content-between">
+
+                    <button class="btn btn-success">
+                        Create Subject & Exam
+                    </button>
+
+                    <button type="button"
+                            class="btn btn-secondary"
+                            @onclick="Cancel">
+                        Cancel
+                    </button>
+
+                </div>
+
+            </div>
+
+        </EditForm>
+
+    </div>
+</div>
+
+
+@code {
+
+    class SubjectExamForm
+    { 
+        public string SubjectName { get; set; }
+         
+        public int Duration { get; set; } = 60;
+    }
+
+    SubjectExamForm FormModel = new();
+
+    void CreateExam()
+    {
+        // 1️⃣ Create exam
+        var exam = new Exam
+        {
+            Duration = FormModel.Duration
+        };
+
+        ExamService.AddExam(exam);
+
+        // 2️⃣ Create subject
+        var subject = new Subject
+        {
+            Name = FormModel.SubjectName,
+            ExamId = exam.Id
+        };
+
+        SubjectService.AddSubject(subject);
+
+        // 3️⃣ Go directly to exam editor
+        Navigation.NavigateTo($"/admin/subject-exam/{subject.Id}");
+    }
+
+    void Cancel()
+    {
+        Navigation.NavigateTo("/admin/subjects");
+    }
+
+}

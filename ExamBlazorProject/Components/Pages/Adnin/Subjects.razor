@@ -1,0 +1,61 @@
+﻿@page "/admin/subjects"
+@attribute [Authorize(Roles = "Admin")]
+@inject ISubjectService SubjectService
+@inject NavigationManager NavigationManager
+
+<h3>Subjects</h3>
+
+<table class="table">
+    <thead>
+        <tr>
+            <th>Name</th>
+            <th>Actions</th>
+        </tr>
+    </thead>
+    <tbody>
+        @foreach (var subject in SubjectsList)
+        {
+            <tr>
+                <td>@subject.Name</td>
+                <td>
+                    <button class="btn btn-sm btn-primary"
+                            @onclick="() => GoToExam(subject.Id)">
+                        Exam
+                    </button>
+
+                    <button class="btn btn-sm btn-danger"
+                            @onclick="() => DeleteSubject(subject.Id)">
+                        Delete
+                    </button>
+                </td>
+            </tr>
+        }
+    </tbody>
+</table>
+
+<button class="btn btn-primary" @onclick="GoToAdd">Add New Subject</button>
+
+@code {
+
+    private List<Subject> SubjectsList = new();
+
+    protected override void OnInitialized()
+    {
+        SubjectsList = SubjectService.GetAllSubjects().ToList();
+    }
+
+    void DeleteSubject(int id)
+    {
+        SubjectService.DeleteSubject(id);
+        SubjectsList = SubjectService.GetAllSubjects().ToList();
+    }
+
+    void GoToAdd()
+    {
+        NavigationManager.NavigateTo("/admin/add-subject");
+    }
+    void GoToExam(int subjectId)
+    {
+        NavigationManager.NavigateTo($"/admin/subject-exam/{subjectId}");
+    }
+}

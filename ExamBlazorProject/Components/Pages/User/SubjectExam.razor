@@ -1,0 +1,167 @@
+﻿@page "/user/subject-exam/{SubjectId:int}"
+@attribute [Authorize]
+
+@inject IExamService ExamService
+@inject IStudentExamService StudentExamService
+@inject AuthenticationStateProvider AuthProvider
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<h3>Exam</h3>
+
+@if (Exam == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="alert alert-warning">
+        ⏱ Time Remaining: <b>@TimeLeft</b>
+    </div>
+
+    @foreach (var q in Exam.Questions)
+    {
+        <div class="card mb-3 p-3">
+
+            <b>@q.Content</b>
+
+            @foreach (var c in q.Choices)
+            {
+                <div class="form-check mt-1">
+                    <input class="form-check-input"
+                           type="radio"
+                           name="q_@q.Id"
+                           @onchange="() => SelectAnswer(q.Id, c.Id)" />
+
+                    <label class="form-check-label">
+                        @c.Content
+                    </label>
+                </div>
+            }
+
+        </div>
+    }
+
+    <button class="btn btn-success mt-3" @onclick="SubmitExam">
+        Submit Exam
+    </button>
+}
+
+@code {
+
+    [Parameter]
+    public int SubjectId { get; set; }
+
+    Exam? Exam;
+
+    Dictionary<int, int> Answers = new(); // questionId -> choiceId
+
+    int SecondsLeft;
+    string TimeLeft = "";
+
+    System.Timers.Timer? Timer;
+
+    IDisposable? NavigationLock;
+
+    protected override void OnInitialized()
+    {
+        Exam = ExamService.GetExamWithQuestionsBySubject(SubjectId);
+
+        if (Exam != null)
+        {
+            SecondsLeft = Exam.Duration * 60;
+            UpdateTimeLeft();
+            StartTimer();
+        }
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && Exam != null)
+        {
+            await JS.InvokeVoidAsync("ExamLock.enable");
+            NavigationLock = Navigation.RegisterLocationChangingHandler(OnLocationChanging);
+        }
+    }
+
+    void StartTimer()
+    {
+        Timer = new System.Timers.Timer(1000);
+        Timer.Elapsed += async (s, e) =>
+        {
+            SecondsLeft--;
+
+            UpdateTimeLeft();
+
+            await InvokeAsync(StateHasChanged);
+
+            if (SecondsLeft <= 0)
+            {
+                Timer.Stop();
+                await InvokeAsync(SubmitExam);
+            }
+        };
+        Timer.Start();
+    }
+
+    void UpdateTimeLeft()
+    {
+        var min = SecondsLeft / 60;
+        var sec = SecondsLeft % 60;
+        TimeLeft = $"{min:D2}:{sec:D2}";
+    }
+
+    void SelectAnswer(int questionId, int choiceId)
+    {
+        Answers[questionId] = choiceId;
+    }
+
+    private ValueTask OnLocationChanging(LocationChangingContext context)
+    {
+        // Prevent leaving during exam
+        context.PreventNavigation();
+        return ValueTask.CompletedTask;
+    }
+
+    async Task SubmitExam()
+    {
+        Timer?.Stop();
+
+        int grade = 0;
+
+        foreach (var q in Exam.Questions)
+        {
+            var correctChoice = q.Choices.First(x => x.IsCorrect);
+
+            if (Answers.ContainsKey(q.Id) && Answers[q.Id] == correctChoice.Id)
+                grade++;
+        }
+
+        var auth = await AuthProvider.GetAuthenticationStateAsync();
+        var userId = auth.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+
+        var studentExam = new StudentExam
+        {
+            ExamId = Exam.Id,
+            ApplicationUserId = userId,
+            Grade = grade,
+            Date = DateTime.Now
+        };
+
+        StudentExamService.AddStudentExam(studentExam);
+
+        // Disable exam lock
+        await JS.InvokeVoidAsync("ExamLock.disable");
+        NavigationLock?.Dispose();
+
+        Navigation.NavigateTo($"/user/result/{studentExam.Id}");
+    }
+
+    public void Dispose()
+    {
+        Timer?.Stop();
+        NavigationLock?.Dispose();
+        JS.InvokeVoidAsync("ExamLock.disable");
+    }
+
+}

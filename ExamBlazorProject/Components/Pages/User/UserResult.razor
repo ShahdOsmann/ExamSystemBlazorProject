@@ -1,0 +1,61 @@
+﻿@page "/user/result/{Id:int}"
+@attribute [Authorize]
+
+@inject IStudentExamService StudentExamService
+@inject IExamService ExamService
+@inject NavigationManager Navigation
+
+<h3>Exam Result</h3>
+
+@if (Result == null)
+{
+    <p>Loading...</p>
+}
+else
+{
+    <div class="card p-4">
+
+        <h4>Your Grade</h4>
+
+        <h2 class="text-success">
+            @Result.Grade / @TotalQuestions
+        </h2>
+
+        <p>You answered @Result.Grade out of @TotalQuestions questions correctly.</p>
+
+    </div>
+
+    <br>
+
+    <button class="btn btn-primary" @onclick="Back">
+        Back To Subjects
+    </button>
+}
+
+@code {
+
+    [Parameter]
+    public int Id { get; set; }
+
+    StudentExam? Result;
+    int TotalQuestions = 0;
+
+    protected override void OnInitialized()
+    {
+        // Get the student's exam result
+        Result = StudentExamService.GetStudentExam(Id);
+
+        if (Result != null)
+        {
+            // Get the total number of questions in the exam
+            var exam = ExamService.GetExam(Result.ExamId);
+            TotalQuestions = exam?.Questions.Count ?? 0;
+        }
+    }
+
+    void Back()
+    {
+        Navigation.NavigateTo("/user/subjects");
+    }
+
+}
